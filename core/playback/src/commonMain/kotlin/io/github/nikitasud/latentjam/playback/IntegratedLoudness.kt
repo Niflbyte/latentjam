@@ -3,6 +3,9 @@ package io.github.nikitasud.latentjam.playback
 
 import kotlin.math.pow
 
+/** Which direction loudness normalization may adjust a track. */
+public enum class NormalizationMode { ONLY_DECREASE, DECREASE_AND_INCREASE, ONLY_INCREASE }
+
 /**
  * Full-track EBU R128 measurement. Never construct this from the legacy sampled RMS cache. [sound]
  * is where the track's sound begins and ends, found in the same pass; null when it has none or was
@@ -18,12 +21,19 @@ public data class IntegratedLoudness(
     public fun isValid(): Boolean = lufs.isFinite() && lufs in -100f..10f &&
         truePeakDbtp.isFinite() && truePeakDbtp in -160f..40f
 
-    /** Attenuation only. Also keep the measured source true peak below -1 dBTP.
-     * This headroom describes the source; subsequent EQ has its own sample-peak limiter. */
-    public fun normalizationVolume(): Float {
+    /** Limit adjustments to the selected direction and avoid boosting above -1 dBTP.
+     * Subsequent EQ has its own sample-peak limiter. */
+    public fun normalizationVolume(mode: NormalizationMode = NormalizationMode.ONLY_DECREASE): Float {
         if (!isValid()) return 1f
-        val gainDb = minOf(0f, -14f - lufs, -1f - truePeakDbtp)
-        return 10.0.pow(gainDb / 20.0).toFloat().coerceIn(0f, 1f)
+        val targetGain = -14f - lufs
+        // The iOS per-deck gain unit supports up to +24 dB; use the same safe limit on both platforms.
+        val peakLimitedGain = minOf(targetGain, -1f - truePeakDbtp, 24f)
+        val gainDb = when (mode) {
+            NormalizationMode.ONLY_DECREASE -> minOf(0f, peakLimitedGain)
+            NormalizationMode.DECREASE_AND_INCREASE -> peakLimitedGain
+            NormalizationMode.ONLY_INCREASE -> maxOf(0f, peakLimitedGain)
+        }
+        return 10.0.pow(gainDb / 20.0).toFloat()
     }
 }
 

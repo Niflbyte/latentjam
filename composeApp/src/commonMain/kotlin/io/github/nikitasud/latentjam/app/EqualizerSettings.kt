@@ -31,6 +31,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.github.nikitasud.latentjam.app.generated.resources.*
 import io.github.nikitasud.latentjam.playback.MAX_CROSSFADE_SECONDS
+import io.github.nikitasud.latentjam.playback.NormalizationMode
 import io.github.nikitasud.latentjam.playback.EqualizerController
 import io.github.nikitasud.latentjam.playback.EqualizerPreset
 import io.github.nikitasud.latentjam.playback.EqualizerPresetKind
@@ -54,6 +55,7 @@ internal fun EqualizerSettings(equalizer: EqualizerController, settings: AppSett
     }
     val scope = rememberCoroutineScope()
     val normalize by settings.normalizeVolume.collectAsState()
+    val normalizationMode by settings.normalizationMode.collectAsState()
     val normalization by AppGraph.normalizationStatus.collectAsState()
     val crossfade by settings.crossfadeSeconds.collectAsState()
 
@@ -183,17 +185,43 @@ internal fun EqualizerSettings(equalizer: EqualizerController, settings: AppSett
                     ) {
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(stringResource(Res.string.settings_normalize_volume), style = MaterialTheme.typography.titleMedium)
-                            Text(stringResource(Res.string.settings_normalize_volume_subtitle), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(stringResource(Res.string.normalization_mode_subtitle), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         AppSwitch(checked = normalize, onCheckedChange = null)
                     }
                     if (normalize) {
+                        var modeMenuOpen by remember { mutableStateOf(false) }
+                        val modeLabel: @Composable (NormalizationMode) -> String = { mode ->
+                            stringResource(when (mode) {
+                                NormalizationMode.ONLY_DECREASE -> Res.string.normalization_only_decrease
+                                NormalizationMode.DECREASE_AND_INCREASE -> Res.string.normalization_both
+                                NormalizationMode.ONLY_INCREASE -> Res.string.normalization_only_increase
+                            })
+                        }
+                        Box {
+                            OutlinedButton(onClick = { modeMenuOpen = true }) {
+                                Text(modeLabel(normalizationMode))
+                                Text("  ▾")
+                            }
+                            AppDropdownMenu(expanded = modeMenuOpen, onDismissRequest = { modeMenuOpen = false }) {
+                                NormalizationMode.entries.forEach { mode ->
+                                    AppMenuItem(text = modeLabel(mode), selected = mode == normalizationMode, onClick = {
+                                        modeMenuOpen = false
+                                        settings.setNormalizationMode(mode)
+                                    })
+                                }
+                            }
+                        }
+                        Text(stringResource(Res.string.normalization_peak_limit), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         val message = when (normalization.phase) {
                             NormalizationPhase.OFF, NormalizationPhase.WAITING -> stringResource(Res.string.normalization_waiting)
                             NormalizationPhase.MEASURING -> stringResource(Res.string.normalization_measuring)
                             NormalizationPhase.UNAVAILABLE -> stringResource(Res.string.normalization_unavailable)
-                            NormalizationPhase.READY -> if (normalization.reductionDb < 0.05f) stringResource(Res.string.normalization_unchanged)
-                                else stringResource(Res.string.normalization_reduced, ((normalization.reductionDb * 10).roundToInt() / 10f).toString())
+                            NormalizationPhase.READY -> when {
+                                normalization.reductionDb < -0.05f -> stringResource(Res.string.normalization_boosted, ((-normalization.reductionDb * 10).roundToInt() / 10f).toString())
+                                normalization.reductionDb > 0.05f -> stringResource(Res.string.normalization_reduced, ((normalization.reductionDb * 10).roundToInt() / 10f).toString())
+                                else -> stringResource(Res.string.normalization_no_change)
+                            }
                         }
                         if (normalization.phase == NormalizationPhase.MEASURING) AppLinearProgress(Modifier.fillMaxWidth())
                         Text(message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)

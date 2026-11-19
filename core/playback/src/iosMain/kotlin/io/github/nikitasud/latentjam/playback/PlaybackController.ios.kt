@@ -141,7 +141,7 @@ internal class IosPlaybackController(
     private var normalizationJob: Job? = null
 
     override suspend fun setTrackVolumes(volumes: Map<String, Float>): Unit = withContext(Dispatchers.Main) {
-        trackVolumes = volumes.mapValues { (_, value) -> if (value.isFinite()) value.coerceIn(0f, 1f) else 1f }
+        trackVolumes = volumes.mapValues { (_, value) -> if (value.isFinite()) value.coerceIn(0f, 15.8489f) else 1f }
         updateNormalizationGain(snap = !playing)
     }
 

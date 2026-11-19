@@ -452,6 +452,17 @@ internal class CrossfadeAudioProcessorTest {
     }
 
     @Test
+    fun quietSamplesAreAmplifiedAndChangesRampAboveUnity() {
+        settings.trackGains = mapOf("a" to 2f)
+        reposition(stream("a", 100_000))
+        assertEquals(2000, feed(loud, 0, 10).first())
+        settings.trackGains = mapOf("a" to 3f)
+        val ramped = feed(loud, 10, 1_000)
+        assertTrue(ramped.first() in 1999..2001)
+        assertEquals(3000, ramped.last())
+    }
+
+    @Test
     fun aSeekBackOutOfTheOverlapReturnsToTheOutgoingTrackAlone() {
         settings.fadeMs = 2_000
         val a = stream("a", 10_000)

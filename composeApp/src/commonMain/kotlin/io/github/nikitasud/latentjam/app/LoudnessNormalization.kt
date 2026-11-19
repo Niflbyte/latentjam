@@ -8,6 +8,7 @@ import io.github.nikitasud.latentjam.playback.NowPlaying
 import io.github.nikitasud.latentjam.playback.PlaybackController
 import io.github.nikitasud.latentjam.playback.FadeEnd
 import io.github.nikitasud.latentjam.playback.IntegratedLoudness
+import io.github.nikitasud.latentjam.playback.NormalizationMode
 import io.github.nikitasud.latentjam.playback.SoundSpan
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -141,8 +142,12 @@ internal fun fadeEnds(loudnessById: Map<String, StoredTrackLoudness>): Map<Strin
     buildMap { loudnessById.forEach { (id, stored) -> stored.measurement.fade?.let { put(id, it) } } }
 
 /** The complete per-track volume map playback should apply; empty when the feature is off. */
-internal fun normalizationVolumes(loudnessById: Map<String, StoredTrackLoudness>, enabled: Boolean): Map<String, Float> =
-    if (!enabled) emptyMap() else loudnessById.mapValues { it.value.measurement.normalizationVolume() }
+internal fun normalizationVolumes(
+    loudnessById: Map<String, StoredTrackLoudness>,
+    enabled: Boolean,
+    mode: NormalizationMode = NormalizationMode.ONLY_DECREASE,
+): Map<String, Float> =
+    if (!enabled) emptyMap() else loudnessById.mapValues { it.value.measurement.normalizationVolume(mode) }
 
 /** The app-container roots ([ContainerPaths.root]) the loudness cache's identities name. */
 internal fun legacyContainerRoots(payload: String?): Set<String> =
@@ -220,7 +225,7 @@ internal class LoudnessNormalizer(
         measured.value = decodeTrackLoudness(settings.readTrackLoudnessPayload().orEmpty())
             .let { rows -> if (fadeEntries || rows.values.none { it.fadeMeasured }) rows else rows.mapValues { withoutEndingsUnlessWanted(it.value) } }
         scope.launch {
-            combine(measured, settings.normalizeVolume, ::normalizationVolumes)
+            combine(measured, settings.normalizeVolume, settings.normalizationMode, ::normalizationVolumes)
                 .distinctUntilChanged()
                 .collect { volumes -> playback.setTrackVolumes(volumes) }
         }
@@ -235,9 +240,10 @@ internal class LoudnessNormalizer(
                 playback.state.map { it.track }.distinctUntilChanged(),
                 settings.normalizeVolume,
                 settings.crossfadeSeconds.map { it > 0 && boundaryFadeControlsAvailable }.distinctUntilChanged(),
+                settings.normalizationMode,
                 ::Wanted,
             )
-                .collectLatest { (track, enabled, transitions) ->
+                .collectLatest { (track, enabled, transitions, mode) ->
                     wantsSound = transitions
                     keepMeasuring(track.takeIf { enabled || transitions })
                     if (!(enabled || transitions) || track == null) {
@@ -246,7 +252,7 @@ internal class LoudnessNormalizer(
                     }
                     if (!enabled) onStatus(NormalizationStatus(NormalizationPhase.OFF))
                     when (val result = ensureMeasured(track, reportsProgress = enabled)) {
-                        is Measured.Ready -> if (enabled) reportReady(result.measurement)
+                        is Measured.Ready -> if (enabled) reportReady(result.measurement, mode)
                         Measured.Unavailable -> if (enabled) onStatus(NormalizationStatus(NormalizationPhase.UNAVAILABLE))
                     }
                     // Then what plays next, while this track plays, so its first second already
@@ -260,7 +266,7 @@ internal class LoudnessNormalizer(
         }
     }
 
-    private data class Wanted(val track: TrackDescriptor?, val normalize: Boolean, val transitions: Boolean)
+    private data class Wanted(val track: TrackDescriptor?, val normalize: Boolean, val transitions: Boolean, val mode: NormalizationMode)
 
     /** Smooth transitions are on: a row measured before sound edges is measured once more. */
     private var wantsSound = false
@@ -339,9 +345,9 @@ internal class LoudnessNormalizer(
         }
     }
 
-    private fun reportReady(measurement: IntegratedLoudness) {
-        val volume = measurement.normalizationVolume()
-        onStatus(NormalizationStatus(NormalizationPhase.READY, if (volume >= 1f) 0f else -20f * kotlin.math.log10(volume)))
+    private fun reportReady(measurement: IntegratedLoudness, mode: NormalizationMode) {
+        val volume = measurement.normalizationVolume(mode)
+        onStatus(NormalizationStatus(NormalizationPhase.READY, if (volume == 1f) 0f else -20f * kotlin.math.log10(volume)))
     }
 
     /** A preference failure must not permanently kill the app-lifetime measurement collector. */

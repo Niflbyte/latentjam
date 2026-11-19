@@ -58,6 +58,9 @@ internal class CrossfadeTest {
         assertEquals(0.5f, normalizationRampVolume(1f, 0.25f, elapsedMs = 200))
         assertEquals(0.25f, normalizationRampVolume(1f, 0.25f, elapsedMs = 400))
         assertEquals(1f, normalizationRampVolume(0.25f, 1f, elapsedMs = 400))
+        assertEquals(2f, normalizationRampVolume(1f, 4f, elapsedMs = 200))
+        assertEquals(4f, normalizationRampVolume(1f, 4f, elapsedMs = 400))
+        assertEquals(2f, normalizationRampVolume(4f, 1f, elapsedMs = 200))
     }
 
     private fun track(id: String, number: Int?, disc: Int? = null, album: String? = "Live at the Paradiso", artist: String? = "Band", albumArtist: String? = null) =

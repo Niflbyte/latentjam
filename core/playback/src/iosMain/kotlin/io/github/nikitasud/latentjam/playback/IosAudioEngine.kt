@@ -23,19 +23,21 @@ import platform.AVFAudio.AVAudioFormat
 import platform.AVFAudio.AVAudioMixerNode
 import platform.AVFAudio.AVAudioPCMBuffer
 import platform.AVFAudio.AVAudioPlayerNode
+import platform.AVFAudio.AVAudioUnitEQ
 import platform.AVFAudio.AVAudioPlayerNodeCompletionDataPlayedBack
 import platform.Foundation.NSURL
 import platform.Foundation.NSUserDefaults
 import platform.Foundation.NSProcessInfo
 import kotlin.math.log10
+import kotlin.math.pow
 import platform.darwin.dispatch_async
 import platform.darwin.dispatch_get_main_queue
 
 /**
- * The app-owned iOS audio graph: two file players -> submixer -> shared Signalsmith DSP Audio Unit
+ * The app-owned iOS audio graph: two file players -> per-deck gain units -> submixer -> shared Signalsmith DSP Audio Unit
  * -> main mixer. One player (the current deck) plays the track at the playhead; the other joins
  * only for an overlap, playing the next track's opening under the current one's end, and becomes
- * the current deck when that end has played ([promoteOverlap]). Each deck's volume carries its
+ * the current deck when that end has played ([promoteOverlap]). Each deck's gain stage carries its
  * track's loudness and transition curve; the main mixer carries the pause/resume fade.
  *
  * AVPlayer does not expose a node where an equalizer can be inserted. Owning this graph is what
@@ -52,6 +54,8 @@ internal class IosAudioEngine : EqualizerController {
     private var engine = AVAudioEngine()
     private var player = AVAudioPlayerNode()
     private var standby = AVAudioPlayerNode()
+    private var playerGainUnit = AVAudioUnitEQ(numberOfBands = 0u)
+    private var standbyGainUnit = AVAudioUnitEQ(numberOfBands = 0u)
     private var submix = AVAudioMixerNode()
     private var playerBus = 0
     private var standbyBus = 1
@@ -126,10 +130,14 @@ internal class IosAudioEngine : EqualizerController {
         standbyBus = 1
         engine.attachNode(player)
         engine.attachNode(standby)
+        engine.attachNode(playerGainUnit)
+        engine.attachNode(standbyGainUnit)
         engine.attachNode(submix)
         engine.attachNode(equalizer)
-        engine.connect(player, submix, 0u, playerBus.toULong(), null)
-        engine.connect(standby, submix, 0u, standbyBus.toULong(), null)
+        engine.connect(player, playerGainUnit, null)
+        engine.connect(playerGainUnit, submix, 0u, playerBus.toULong(), null)
+        engine.connect(standby, standbyGainUnit, null)
+        engine.connect(standbyGainUnit, submix, 0u, standbyBus.toULong(), null)
         engine.connect(submix, equalizer, null)
         engine.connect(equalizer, engine.mainMixerNode, null)
         applySettings()
@@ -168,6 +176,8 @@ internal class IosAudioEngine : EqualizerController {
         engine = AVAudioEngine()
         player = AVAudioPlayerNode()
         standby = AVAudioPlayerNode()
+        playerGainUnit = AVAudioUnitEQ(numberOfBands = 0u)
+        standbyGainUnit = AVAudioUnitEQ(numberOfBands = 0u)
         submix = AVAudioMixerNode()
         equalizer = checkNotNull(lj_eq_ios_create())
         buildGraph()
@@ -286,18 +296,21 @@ internal class IosAudioEngine : EqualizerController {
      * silent unless an overlap is sounding.
      */
     fun setDeckGains(current: Float, incoming: Float = 0f) {
-        currentGain = if (current.isFinite()) current.coerceIn(0f, 1f) else 1f
-        standbyGain = if (incoming.isFinite()) incoming.coerceIn(0f, 1f) else 0f
+        currentGain = if (current.isFinite()) current.coerceIn(0f, MAX_DECK_GAIN) else 1f
+        standbyGain = if (incoming.isFinite()) incoming.coerceIn(0f, MAX_DECK_GAIN) else 0f
         applyMixerGain()
     }
 
     /** Effective platform volume of the current deck, after composing independent gain controls. */
-    val effectiveOutputVolume: Float get() = engine.mainMixerNode.outputVolume * player.volume
+    val effectiveOutputVolume: Float get() = engine.mainMixerNode.outputVolume * player.volume *
+        10.0.pow(playerGainUnit.globalGain.toDouble() / 20.0).toFloat()
 
     private fun applyMixerGain() {
         engine.mainMixerNode.outputVolume = transportGain
-        player.volume = currentGain
-        standby.volume = standbyGain
+        player.volume = currentGain.coerceAtMost(1f)
+        standby.volume = standbyGain.coerceAtMost(1f)
+        playerGainUnit.globalGain = (20 * log10(currentGain.coerceAtLeast(1f).toDouble())).toFloat().coerceAtMost(24f)
+        standbyGainUnit.globalGain = (20 * log10(standbyGain.coerceAtLeast(1f).toDouble())).toFloat().coerceAtMost(24f)
     }
 
     /**
@@ -314,7 +327,7 @@ internal class IosAudioEngine : EqualizerController {
         // The graph after the submixer runs in the current file's format and stays so after the
         // decks swap; a track of another rate or layout would play through it converted for good.
         if (!sharesGraphFormat(current.processingFormat, file.processingFormat)) return null
-        if (lj_eq_ios_connect_deck(engine, standby, submix, standbyBus, file.processingFormat) == 0) return null
+        if (lj_eq_ios_connect_deck(engine, standby, standbyGainUnit, submix, standbyBus, file.processingFormat) == 0) return null
         standbyGain = 0f
         applyMixerGain()
         standbyFile = file
@@ -451,8 +464,11 @@ internal class IosAudioEngine : EqualizerController {
         val playedFrame = standbyPlayedFrame(file)
         val previous = player
         val previousBus = playerBus
+        val previousGainUnit = playerGainUnit
         previous.stop()
         player = standby
+        playerGainUnit = standbyGainUnit
+        standbyGainUnit = previousGainUnit
         playerBus = standbyBus
         standby = previous
         standbyBus = previousBus
@@ -582,7 +598,7 @@ internal class IosAudioEngine : EqualizerController {
     private fun configureFileGraph(file: AVAudioFile): Boolean {
         // A prepared graph can allocate the AU after changing only one bus, briefly leaving its
         // old stereo output against a new mono input. Detach and set BOTH formats first.
-        if (lj_eq_ios_connect_deck(engine, player, submix, playerBus, file.processingFormat) == 0) return false
+        if (lj_eq_ios_connect_deck(engine, player, playerGainUnit, submix, playerBus, file.processingFormat) == 0) return false
         if (lj_eq_ios_connect(engine, submix, equalizer, file.processingFormat) == 0) return false
         applySettings()
         engine.prepare()
@@ -663,6 +679,8 @@ internal class IosAudioEngine : EqualizerController {
 
     private companion object {
         const val NO_TOKEN = -1L
+        // AVAudioUnitEQ globalGain is limited to +24 dB.
+        const val MAX_DECK_GAIN = 15.8489f
 
         /** The fade a late-started next track opens with, against a click. */
         const val RAMP_IN_MS = 20L

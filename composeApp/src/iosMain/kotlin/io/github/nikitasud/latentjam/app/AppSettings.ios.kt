@@ -8,6 +8,7 @@ import io.github.nikitasud.latentjam.library.AlbumSort
 import io.github.nikitasud.latentjam.library.FolderSort
 import io.github.nikitasud.latentjam.library.SongSort
 import io.github.nikitasud.latentjam.playback.sanitizeCrossfadeSeconds
+import io.github.nikitasud.latentjam.playback.NormalizationMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -76,6 +77,8 @@ internal class IosAppSettings : AppSettings {
         ),
     )
     override val normalizeVolume: StateFlow<Boolean> = mutableNormalizeVolume.asStateFlow()
+    private val mutableNormalizationMode = MutableStateFlow(normalizationModeFromPersisted(defaults.stringForKey(KEY_NORMALIZATION_MODE)))
+    override val normalizationMode: StateFlow<NormalizationMode> = mutableNormalizationMode.asStateFlow()
     private val mutableCrossfadeSeconds = MutableStateFlow(
         sanitizeCrossfadeSeconds(
             (defaults.objectForKey(KEY_CROSSFADE_SECONDS) as? NSNumber)?.intValue ?: 0,
@@ -185,6 +188,11 @@ internal class IosAppSettings : AppSettings {
     override fun setNormalizeVolume(enabled: Boolean) {
         defaults.setBool(enabled, KEY_NORMALIZE_VOLUME)
         mutableNormalizeVolume.value = enabled
+    }
+
+    override fun setNormalizationMode(mode: NormalizationMode) {
+        defaults.setObject(mode.name, KEY_NORMALIZATION_MODE)
+        mutableNormalizationMode.value = mode
     }
 
     override fun setCrossfadeSeconds(seconds: Int) {
@@ -427,6 +435,7 @@ internal class IosAppSettings : AppSettings {
         const val KEY_RESUME_SOURCE_KIND = "resume_source_kind"
         const val KEY_RESUME_SOURCE_NAME = "resume_source_name"
         const val KEY_NORMALIZE_VOLUME = "normalize_volume"
+        const val KEY_NORMALIZATION_MODE = "normalization_mode"
         const val KEY_CROSSFADE_SECONDS = "crossfade_seconds"
         const val KEY_RELATIVE_PLAYLIST_PATHS = "relative_playlist_paths"
         const val KEY_ARTIST_VARIETY = "artist_variety"

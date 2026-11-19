@@ -9,6 +9,7 @@ import io.github.nikitasud.latentjam.library.AlbumSort
 import io.github.nikitasud.latentjam.library.FolderSort
 import io.github.nikitasud.latentjam.library.SongSort
 import io.github.nikitasud.latentjam.playback.sanitizeCrossfadeSeconds
+import io.github.nikitasud.latentjam.playback.NormalizationMode
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -85,6 +86,8 @@ internal class AndroidAppSettings(context: Context) : AppSettings {
         ),
     )
     override val normalizeVolume: StateFlow<Boolean> = mutableNormalizeVolume.asStateFlow()
+    private val mutableNormalizationMode = MutableStateFlow(normalizationModeFromPersisted(readString(KEY_NORMALIZATION_MODE)))
+    override val normalizationMode: StateFlow<NormalizationMode> = mutableNormalizationMode.asStateFlow()
     private val mutableCrossfadeSeconds = MutableStateFlow(
         sanitizeCrossfadeSeconds(
             runCatching { preferences.getInt(KEY_CROSSFADE_SECONDS, 0) }.getOrNull() ?: 0,
@@ -206,6 +209,11 @@ internal class AndroidAppSettings(context: Context) : AppSettings {
     override fun setNormalizeVolume(enabled: Boolean) {
         preferences.edit().putBoolean(KEY_NORMALIZE_VOLUME, enabled).apply()
         mutableNormalizeVolume.value = enabled
+    }
+
+    override fun setNormalizationMode(mode: NormalizationMode) {
+        preferences.edit().putString(KEY_NORMALIZATION_MODE, mode.name).apply()
+        mutableNormalizationMode.value = mode
     }
 
     override fun setCrossfadeSeconds(seconds: Int) {
@@ -478,6 +486,7 @@ internal class AndroidAppSettings(context: Context) : AppSettings {
         const val KEY_LOCK_PLAYER_VENDOR_NOTE_HIDDEN = "lock_player_vendor_note_hidden"
         const val KEY_LOCK_PLAYER_OVERLAY_NOTICE_SHOWN = "lock_player_overlay_notice_shown"
         const val KEY_NORMALIZE_VOLUME = "normalize_volume"
+        const val KEY_NORMALIZATION_MODE = "normalization_mode"
         const val KEY_CROSSFADE_SECONDS = "crossfade_seconds"
         const val KEY_RELATIVE_PLAYLIST_PATHS = "relative_playlist_paths"
         const val KEY_ARTIST_VARIETY = "artist_variety"

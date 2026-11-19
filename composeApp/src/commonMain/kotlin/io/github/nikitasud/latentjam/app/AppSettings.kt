@@ -9,10 +9,16 @@ import io.github.nikitasud.latentjam.library.FolderSort
 import io.github.nikitasud.latentjam.library.SongSort
 import io.github.nikitasud.latentjam.library.SongSortDirection
 import io.github.nikitasud.latentjam.library.defaultDirection
+import io.github.nikitasud.latentjam.playback.NormalizationMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.koin.core.module.Module
 import kotlin.math.abs
+
+private val DEFAULT_NORMALIZATION_MODE = MutableStateFlow(NormalizationMode.ONLY_DECREASE)
+
+internal fun normalizationModeFromPersisted(value: String?): NormalizationMode =
+    NormalizationMode.entries.firstOrNull { it.name == value } ?: NormalizationMode.ONLY_DECREASE
 
 /** How the app picks between its light and dark palettes. */
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
@@ -488,9 +494,13 @@ interface AppSettings {
     val smartRanker: StateFlow<Boolean> get() = SMART_RANKER_FALLBACK_FLOW
     fun setSmartRanker(enabled: Boolean) {}
 
-    /** Whether playback attenuates loud tracks toward a common level. Off by default. */
+    /** Whether playback adjusts tracks toward a common loudness. Off by default. */
     val normalizeVolume: StateFlow<Boolean>
     fun setNormalizeVolume(enabled: Boolean)
+
+    /** The allowed direction of the loudness adjustment. */
+    val normalizationMode: StateFlow<NormalizationMode> get() = DEFAULT_NORMALIZATION_MODE
+    fun setNormalizationMode(mode: NormalizationMode) {}
 
     /** Seconds of amplitude fade at each track boundary; 0 (the default) keeps hard cuts. */
     val crossfadeSeconds: StateFlow<Int>

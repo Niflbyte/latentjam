@@ -443,7 +443,7 @@ internal class AndroidPlaybackController(
     override suspend fun setTrackVolumes(volumes: Map<String, Float>) {
         withContext(Dispatchers.Main.immediate) {
             crossfade.trackGains = volumes.mapValues { (_, volume) ->
-                if (volume.isFinite()) volume.coerceIn(0f, 1f) else 1f
+                if (volume.isFinite()) volume.coerceAtLeast(0f) else 1f
             }
         }
     }

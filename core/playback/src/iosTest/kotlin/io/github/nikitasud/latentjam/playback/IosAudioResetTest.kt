@@ -97,7 +97,11 @@ class IosAudioResetTest {
             assertEquals(0.2f, engine.effectiveOutputVolume, 0.00001f)
             engine.setTransportGain(1f)
             assertEquals(0.5f, engine.effectiveOutputVolume, 0.00001f)
-            engine.setDeckGains(1f)
+            engine.setDeckGains(2f)
+            assertEquals(2f, engine.effectiveOutputVolume, 0.00001f)
+            assertTrue(engine.rebuildAfterMediaServicesReset(250L))
+            assertEquals(2f, engine.effectiveOutputVolume, 0.00001f)
+            engine.setDeckGains(Float.POSITIVE_INFINITY)
             assertEquals(1f, engine.effectiveOutputVolume, 0.00001f)
         } finally { engine.stop() }
     }
@@ -114,13 +118,13 @@ class IosAudioResetTest {
                     assertFalse(engine.overlapping)
                     assertTrue(engine.startOverlap())
                     assertTrue(engine.overlapping)
-                    engine.setDeckGains(1f, 0.5f)
+                    engine.setDeckGains(1f, 2f)
                     assertTrue(engine.promoteOverlap {})
                     assertFalse(engine.overlapping)
                     assertTrue(engine.playing)
                     assertEquals(1000L, engine.durationMs())
                     // The promoted deck keeps the gain it was sounding at.
-                    assertEquals(0.5f, engine.effectiveOutputVolume, 0.00001f)
+                    assertEquals(2f, engine.effectiveOutputVolume, 0.00001f)
                     assertFalse(engine.promoteOverlap {})
                 }
             } finally { engine.stop() }

@@ -208,8 +208,8 @@ public interface PlaybackController {
     public suspend fun invalidateSmartFuture()
 
     /**
-     * Per-track playback volume multipliers in `(0, 1]`, keyed by track id; a missing id plays at
-     * full volume. Volume-normalization support: the app computes attenuation from measured
+     * Per-track non-negative finite playback gain multipliers, keyed by track id; a missing id plays at
+     * full volume. Volume-normalization support: the app computes gain from measured
      * loudness and pushes the complete map here. Platforms without an app-level gain stage keep
      * the default no-op and simply play unnormalized.
      */

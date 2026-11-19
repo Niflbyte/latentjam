@@ -211,11 +211,13 @@ int lj_eq_ios_read_next(AVAudioFile *file, AVAudioPCMBuffer *buffer) {
     }
 }
 
-int lj_eq_ios_connect_deck(AVAudioEngine *engine, AVAudioPlayerNode *player, AVAudioMixerNode *mixer, int bus, AVAudioFormat *format) {
+int lj_eq_ios_connect_deck(AVAudioEngine *engine, AVAudioPlayerNode *player, AVAudioUnitEQ *gain, AVAudioMixerNode *mixer, int bus, AVAudioFormat *format) {
     if (bus < 0) return 0;
     @try {
         [engine disconnectNodeOutput:player];
-        [engine connect:player to:mixer fromBus:0 toBus:(AVAudioNodeBus)bus format:format];
+        [engine disconnectNodeOutput:gain];
+        [engine connect:player to:gain format:format];
+        [engine connect:gain to:mixer fromBus:0 toBus:(AVAudioNodeBus)bus format:format];
         return 1;
     } @catch (NSException *exception) {
         return 0;

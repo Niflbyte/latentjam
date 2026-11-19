@@ -112,15 +112,15 @@ internal fun normalizationRampVolume(
     elapsedMs: Long,
     durationMs: Long = NORMALIZATION_RAMP_MS,
 ): Float {
-    val start = from.coerceIn(0f, 1f)
-    val target = to.coerceIn(0f, 1f)
+    val start = from.coerceAtLeast(0f)
+    val target = to.coerceAtLeast(0f)
     if (durationMs <= 0L || elapsedMs >= durationMs) return target
     if (elapsedMs <= 0L || start == target) return start
     val progress = elapsedMs.toFloat() / durationMs
     return if (start > 0f && target > 0f) {
-        (start * (target / start).pow(progress)).coerceIn(0f, 1f)
+        (start.toDouble() * (target.toDouble() / start).pow(progress.toDouble())).toFloat()
     } else {
-        (start + (target - start) * progress).coerceIn(0f, 1f)
+        start + (target - start) * progress
     }
 }
 

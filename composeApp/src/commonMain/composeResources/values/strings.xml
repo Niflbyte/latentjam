@@ -736,6 +736,13 @@
     <string name="stats_skipped_share">Skipped</string>
     <string name="stats_empty">Nothing has been played in this period yet.</string>
     <string name="stats_load_failed">Could not load listening statistics.</string>
+    <string name="normalization_mode_subtitle">Adjusts tracks toward a consistent loudness</string>
+    <string name="normalization_only_decrease">Only Decrease (Default)</string>
+    <string name="normalization_both">Decrease and Increase</string>
+    <string name="normalization_only_increase">Only Increase</string>
+    <string name="normalization_peak_limit">Boost is limited to avoid clipping measured peaks.</string>
+    <string name="normalization_boosted">This track is boosted by %1$s dB.</string>
+    <string name="normalization_no_change">This track is not adjusted.</string>
     <string name="settings_normalize_volume">Volume normalization</string>
     <string name="settings_normalize_volume_subtitle">Reduces loud tracks toward a consistent level</string>
     <string name="settings_crossfade">Smooth transitions</string>

@@ -64,6 +64,19 @@ internal class IntegratedLoudnessTest {
         assertEquals(1f, IntegratedLoudness(Float.NaN, -2f).normalizationVolume())
     }
 
+    @Test fun normalizationModesRespectDirectionAndPeakHeadroom() {
+        val quiet = IntegratedLoudness(-23f, -6f)
+        val loud = IntegratedLoudness(-8f, -2f)
+        val peakLimited = 10f.pow(5f / 20)
+        assertEquals(peakLimited, quiet.normalizationVolume(NormalizationMode.DECREASE_AND_INCREASE), 0.00001f)
+        assertEquals(peakLimited, quiet.normalizationVolume(NormalizationMode.ONLY_INCREASE), 0.00001f)
+        assertEquals(10f.pow(-6f / 20), loud.normalizationVolume(NormalizationMode.DECREASE_AND_INCREASE), 0.00001f)
+        assertEquals(1f, loud.normalizationVolume(NormalizationMode.ONLY_INCREASE))
+        assertEquals(1f, IntegratedLoudness(-23f, 2f).normalizationVolume(NormalizationMode.ONLY_INCREASE))
+        assertEquals(1f, IntegratedLoudness(Float.NaN, -2f).normalizationVolume(NormalizationMode.DECREASE_AND_INCREASE))
+        assertEquals(10f.pow(24f / 20), IntegratedLoudness(-100f, -160f).normalizationVolume(NormalizationMode.ONLY_INCREASE), 0.0001f)
+    }
+
     @Test fun completeScanGuardRejectsTruncationAndLongOrEmptyInputs() {
         assertTrue(LoudnessScanLimits.complete(48000L * 180, 48000, 180000))
         assertTrue(LoudnessScanLimits.complete(48000L * 180, 48000, null))

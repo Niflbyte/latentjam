@@ -14,9 +14,9 @@ void lj_eq_ios_restart(AVAudioUnit *unit);
  * mixer. Unsupported system formats return false; an Objective-C audio-graph exception must not
  * cross the Kotlin boundary. */
 int lj_eq_ios_connect(AVAudioEngine *engine, AVAudioNode *source, AVAudioUnit *unit, AVAudioFormat *format);
-/* Connects a player to one input bus of a mixer in its own format; the mixer converts. Allowed on
+/* Connects a player through its gain unit to one mixer input in the player's format; the mixer converts. Allowed on
  * a running graph, which is how a second track joins for an overlap. False on any graph error. */
-int lj_eq_ios_connect_deck(AVAudioEngine *engine, AVAudioPlayerNode *player, AVAudioMixerNode *mixer, int bus, AVAudioFormat *format);
+int lj_eq_ios_connect_deck(AVAudioEngine *engine, AVAudioPlayerNode *player, AVAudioUnitEQ *gain, AVAudioMixerNode *mixer, int bus, AVAudioFormat *format);
 /* Whether [file] really decodes: reads its first frames, then rewinds. AVAudioFile opens some files it cannot decode
  * (32-bit FLAC in MP4) and raises an Objective-C exception from framePosition and every read, which ends the app if it
  * crosses the Kotlin boundary; such a file returns false. */

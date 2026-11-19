@@ -8,6 +8,7 @@ import io.github.nikitasud.latentjam.library.AlbumSort
 import io.github.nikitasud.latentjam.library.SongSort
 import io.github.nikitasud.latentjam.playback.FadeEnd
 import io.github.nikitasud.latentjam.playback.IntegratedLoudness
+import io.github.nikitasud.latentjam.playback.NormalizationMode
 import kotlin.test.assertFalse
 import kotlinx.coroutines.awaitCancellation
 import io.github.nikitasud.latentjam.playback.NowPlaying
@@ -215,6 +216,17 @@ internal class LoudnessNormalizationTest {
     }
 
     @Test
+    fun modeChangesApplyPeakLimitedBoostAndPreserveDirection() {
+        val rows = mapOf("quiet" to StoredTrackLoudness(IntegratedLoudness(-23f, -6f), "id"))
+        assertEquals(1f, normalizationVolumes(rows, true).getValue("quiet"))
+        assertTrue(normalizationVolumes(rows, true, NormalizationMode.DECREASE_AND_INCREASE).getValue("quiet") > 1f)
+        assertTrue(normalizationVolumes(rows, true, NormalizationMode.ONLY_INCREASE).getValue("quiet") > 1f)
+        assertEquals(emptyMap(), normalizationVolumes(rows, false, NormalizationMode.ONLY_INCREASE))
+        assertEquals(NormalizationMode.ONLY_DECREASE, normalizationModeFromPersisted("invalid"))
+        assertEquals(NormalizationMode.ONLY_INCREASE, normalizationModeFromPersisted("ONLY_INCREASE"))
+    }
+
+    @Test
     fun audioIdentityChangesWhenUnderlyingBytesChangeAtTheSameTrackId() {
         val original = TrackDescriptor(
             id = TrackId("42"),
@@ -293,6 +305,30 @@ internal class LoudnessNormalizationTest {
         runCurrent()
         assertEquals(NormalizationPhase.OFF, statuses.last().phase)
         assertEquals(emptyMap(), playback.volumeUpdates.last())
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun changingModeUpdatesPlaybackAndStatusWithoutRescanning() = runTest {
+        val settings = ThrowingSettings()
+        val playback = FakePlayback()
+        val statuses = mutableListOf<NormalizationStatus>()
+        var scans = 0
+        val meter = object : TrackLoudnessMeter {
+            override suspend fun measure(track: TrackDescriptor): IntegratedLoudness {
+                scans++
+                return IntegratedLoudness(-23f, -6f)
+            }
+        }
+        LoudnessNormalizer(settings, playback, meter, statuses::add).start(backgroundScope)
+        playback.nowPlaying.value = NowPlaying(track = audioTrack("quiet", "one"))
+        runCurrent()
+        assertEquals(1f, playback.volumeUpdates.last().getValue("quiet"))
+        settings.setNormalizationMode(NormalizationMode.ONLY_INCREASE)
+        runCurrent()
+        assertTrue(playback.volumeUpdates.last().getValue("quiet") > 1f)
+        assertTrue(statuses.last().reductionDb < 0f)
+        assertEquals(1, scans)
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -461,6 +497,8 @@ internal class LoudnessNormalizationTest {
         override fun setIncludeNoveltyMixes(enabled: Boolean) { includeNoveltyMixes.value = enabled }
         override val normalizeVolume = MutableStateFlow(true)
         override fun setNormalizeVolume(enabled: Boolean) { normalizeVolume.value = enabled }
+        override val normalizationMode = MutableStateFlow(NormalizationMode.ONLY_DECREASE)
+        override fun setNormalizationMode(mode: NormalizationMode) { normalizationMode.value = mode }
         override val crossfadeSeconds = MutableStateFlow(0)
         override fun setCrossfadeSeconds(seconds: Int) { crossfadeSeconds.value = seconds }
         override val relativePlaylistPaths = MutableStateFlow(false)
