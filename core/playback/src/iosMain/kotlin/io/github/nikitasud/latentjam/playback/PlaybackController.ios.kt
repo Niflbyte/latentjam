@@ -137,8 +137,13 @@ internal class IosPlaybackController(
         fadeEntryRule = rule
         updateCrossfadeLoop()
     }
+    private var normalizationRampMs = NORMALIZATION_RAMP_MS
     private var normalizationGain = 1f
     private var normalizationJob: Job? = null
+
+    override suspend fun setNormalizationRampMs(durationMs: Long): Unit = withContext(Dispatchers.Main) {
+        normalizationRampMs = sanitizeNormalizationRampMs(durationMs)
+    }
 
     override suspend fun setTrackVolumes(volumes: Map<String, Float>): Unit = withContext(Dispatchers.Main) {
         trackVolumes = volumes.mapValues { (_, value) -> if (value.isFinite()) value.coerceIn(0f, 1f) else 1f }
@@ -155,13 +160,14 @@ internal class IosPlaybackController(
             return
         }
         val from = normalizationGain
+        val durationMs = normalizationRampMs
         val started = transportTimeMs()
         normalizationJob = mainScope.launch {
             do {
                 val elapsed = (transportTimeMs() - started).coerceAtLeast(0)
-                normalizationGain = normalizationRampVolume(from, target, elapsed)
+                normalizationGain = normalizationRampVolume(from, target, elapsed, durationMs)
                 applyDeckGains()
-                if (elapsed >= NORMALIZATION_RAMP_MS) break
+                if (elapsed >= durationMs) break
                 delay(GAIN_RAMP_TICK_MS)
             } while (isActive)
         }

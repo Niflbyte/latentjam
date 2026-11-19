@@ -19,7 +19,10 @@ public const val MAX_CROSSFADE_SECONDS: Int = 12
 internal const val GAIN_RAMP_TICK_MS: Long = 20L
 
 /** How long a newly learned normalization value takes to reach its target. */
-internal const val NORMALIZATION_RAMP_MS: Long = 400L
+public const val NORMALIZATION_RAMP_MS: Long = 3_000L
+
+/** Enforces the minimum normalization ramp duration. */
+public fun sanitizeNormalizationRampMs(value: Long): Long = value.coerceAtLeast(400L)
 
 /** A persisted or programmatic value degrades to the nearest legal one, never to a crash. */
 public fun sanitizeCrossfadeSeconds(value: Int): Int = value.coerceIn(0, MAX_CROSSFADE_SECONDS)

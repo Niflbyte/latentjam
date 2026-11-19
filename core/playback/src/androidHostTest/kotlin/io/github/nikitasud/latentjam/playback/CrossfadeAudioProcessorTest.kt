@@ -446,8 +446,10 @@ internal class CrossfadeAudioProcessorTest {
         // A new track's gain is installed before its first sample.
         assertEquals(250, feed(loud, 0, 10).first())
         settings.trackGains = mapOf("b" to 1f)
-        val ramped = feed(loud, 10, 1_000)
+        settings.normalizationRampMs = 6_000
+        val ramped = feed(loud, 10, 6_011)
         assertTrue(ramped.first() < 300)
+        assertTrue(ramped[3_000] in 499..501)
         assertEquals(1000, ramped.last())
     }
 

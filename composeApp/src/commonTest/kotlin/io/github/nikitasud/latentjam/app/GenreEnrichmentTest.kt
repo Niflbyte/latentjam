@@ -494,6 +494,8 @@ internal class GenreEnrichmentTest {
         override fun setIncludeNoveltyMixes(enabled: Boolean) { includeNoveltyMixes.value = enabled }
         override val normalizeVolume = MutableStateFlow(true)
         override fun setNormalizeVolume(enabled: Boolean) { normalizeVolume.value = enabled }
+        override val normalizationRampMs = MutableStateFlow(3000)
+        override fun setNormalizationRampMs(seconds: Int) { normalizationRampMs.value = sanitizeNormalizationRampMs(seconds) }
         override val crossfadeSeconds = MutableStateFlow(0)
         override fun setCrossfadeSeconds(seconds: Int) { crossfadeSeconds.value = seconds }
         override val relativePlaylistPaths = MutableStateFlow(false)

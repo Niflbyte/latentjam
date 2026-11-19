@@ -440,6 +440,10 @@ internal class AndroidPlaybackController(
     private fun sounding(player: Player): Boolean =
         player.isPlaying && !AndroidTransportFade.pausePending.value
 
+    override suspend fun setNormalizationRampMs(durationMs: Long) {
+        withContext(Dispatchers.Main.immediate) { crossfade.normalizationRampMs = sanitizeNormalizationRampMs(durationMs) }
+    }
+
     override suspend fun setTrackVolumes(volumes: Map<String, Float>) {
         withContext(Dispatchers.Main.immediate) {
             crossfade.trackGains = volumes.mapValues { (_, volume) ->

@@ -1813,6 +1813,8 @@ internal class LocalBackupTest {
         override fun setIncludeNoveltyMixes(enabled: Boolean) { includeNoveltyMixes.value = enabled }
         override val normalizeVolume: MutableStateFlow<Boolean> = MutableStateFlow(false)
         override fun setNormalizeVolume(enabled: Boolean) { normalizeVolume.value = enabled }
+        override val normalizationRampMs = MutableStateFlow(3000)
+        override fun setNormalizationRampMs(seconds: Int) { normalizationRampMs.value = sanitizeNormalizationRampMs(seconds) }
         override val crossfadeSeconds: MutableStateFlow<Int> = MutableStateFlow(0)
         override fun setCrossfadeSeconds(seconds: Int) { crossfadeSeconds.value = seconds }
         override val relativePlaylistPaths: MutableStateFlow<Boolean> = MutableStateFlow(false)

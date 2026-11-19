@@ -235,6 +235,10 @@ internal fun recordingPreferenceFromPersisted(value: Boolean?): Boolean = value 
 internal fun noveltyMixPreferenceFromPersisted(value: Boolean?): Boolean = value ?: false
 
 /** Volume normalization audibly changes playback, so it too is an explicit opt-in. */
+internal const val DEFAULT_NORMALIZATION_RAMP_MS = 3000
+internal const val MAX_NORMALIZATION_RAMP_MS = 15000
+internal fun sanitizeNormalizationRampMs(value: Int): Int = value.coerceIn(400, MAX_NORMALIZATION_RAMP_MS)
+
 internal fun normalizeVolumePreferenceFromPersisted(value: Boolean?): Boolean = value ?: false
 
 /** Exported playlists keep the absolute paths they always had unless the listener asks. */
@@ -491,6 +495,8 @@ interface AppSettings {
     /** Whether playback attenuates loud tracks toward a common level. Off by default. */
     val normalizeVolume: StateFlow<Boolean>
     fun setNormalizeVolume(enabled: Boolean)
+    val normalizationRampMs: StateFlow<Int>
+    fun setNormalizationRampMs(seconds: Int)
 
     /** Seconds of amplitude fade at each track boundary; 0 (the default) keeps hard cuts. */
     val crossfadeSeconds: StateFlow<Int>

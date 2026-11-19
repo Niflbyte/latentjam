@@ -76,6 +76,8 @@ internal class IosAppSettings : AppSettings {
         ),
     )
     override val normalizeVolume: StateFlow<Boolean> = mutableNormalizeVolume.asStateFlow()
+    private val mutableNormalizationRampMs = MutableStateFlow(sanitizeNormalizationRampMs((defaults.objectForKey(KEY_NORMALIZATION_RAMP_MS) as? NSNumber)?.intValue ?: ((defaults.objectForKey(KEY_NORMALIZATION_RAMP_SECONDS_LEGACY) as? NSNumber)?.intValue ?: 3).coerceIn(0, 15) * 1000))
+    override val normalizationRampMs: StateFlow<Int> = mutableNormalizationRampMs.asStateFlow()
     private val mutableCrossfadeSeconds = MutableStateFlow(
         sanitizeCrossfadeSeconds(
             (defaults.objectForKey(KEY_CROSSFADE_SECONDS) as? NSNumber)?.intValue ?: 0,
@@ -185,6 +187,12 @@ internal class IosAppSettings : AppSettings {
     override fun setNormalizeVolume(enabled: Boolean) {
         defaults.setBool(enabled, KEY_NORMALIZE_VOLUME)
         mutableNormalizeVolume.value = enabled
+    }
+
+    override fun setNormalizationRampMs(seconds: Int) {
+        val sanitized = sanitizeNormalizationRampMs(seconds)
+        defaults.setInteger(sanitized.toLong(), KEY_NORMALIZATION_RAMP_MS)
+        mutableNormalizationRampMs.value = sanitized
     }
 
     override fun setCrossfadeSeconds(seconds: Int) {
@@ -426,6 +434,8 @@ internal class IosAppSettings : AppSettings {
         const val KEY_RESUME_POSITION = "resume_position_ms"
         const val KEY_RESUME_SOURCE_KIND = "resume_source_kind"
         const val KEY_RESUME_SOURCE_NAME = "resume_source_name"
+        const val KEY_NORMALIZATION_RAMP_MS = "normalization_ramp_ms"
+        const val KEY_NORMALIZATION_RAMP_SECONDS_LEGACY = "normalization_ramp_seconds"
         const val KEY_NORMALIZE_VOLUME = "normalize_volume"
         const val KEY_CROSSFADE_SECONDS = "crossfade_seconds"
         const val KEY_RELATIVE_PLAYLIST_PATHS = "relative_playlist_paths"

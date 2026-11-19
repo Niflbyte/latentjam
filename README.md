@@ -153,7 +153,8 @@ a while at first.
   - An editable queue that survives restarts; playlists with M3U import/export, drag-to-reorder and
     their own sort order; album, artist and genre browsing, and folders as a tree or a flat list.
   - Fades on pause and track changes, an optional crossfade of up to 12 s,
-    volume normalisation, an equaliser, a sleep timer.
+    volume normalisation with a configurable ramp (0.4–15 s in 0.1 s steps, default 3 s),
+    an equaliser, a sleep timer.
   - A duplicate finder that recognises the same recording saved twice even when the tags differ,
     and tells you which copy to keep.
   - Local backup and restore.

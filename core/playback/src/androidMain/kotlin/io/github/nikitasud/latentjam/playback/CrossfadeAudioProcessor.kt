@@ -28,6 +28,8 @@ internal class CrossfadeSettings {
     /** Loudness normalisation per media id; a missing id plays at full volume. */
     @Volatile var trackGains: Map<String, Float> = emptyMap()
 
+    @Volatile var normalizationRampMs: Long = NORMALIZATION_RAMP_MS
+
     /**
      * Which ends of each queue row may fade, by the row's player index; see [queueFadeEdges]. A
      * missing row fades both. Published by the controller from its copy of the timeline, so for
@@ -487,7 +489,7 @@ internal class CrossfadeAudioProcessor(
         val livePlan = settings.plan
         val envelopeStep = 1f / (rate * ENVELOPE_SLEW_MS / 1000f)
         val introStep = 1f / (rate * CROSSFADE_CANCEL_MS / 1000f)
-        val rampFrames = NORMALIZATION_RAMP_MS * rate / 1000L
+        val rampMs = settings.normalizationRampMs
         val fallbackFadeUs = minOf(fadeMs * 1000L, durationUs / 2L)
         // An overlap meets the outgoing track's last sound: its end is settled where that window
         // begins, which a long trailing silence puts before the file's own fade window.
@@ -509,8 +511,8 @@ internal class CrossfadeAudioProcessor(
             val mediaUs = segment.startUs + index * 1_000_000L / rate
 
             // Loudness: the track's own gain, ramped when it changes under the music.
-            if (segment.gainTarget != targetGain || segment.rampFrom != null) segment.beginGainRamp(targetGain)
-            val gain = segment.gainAt(rampFrames, rate)
+            if (segment.gainTarget != targetGain || segment.rampFrom != null) segment.beginGainRamp(targetGain, rampMs)
+            val gain = segment.gainAt(rate)
 
             // How this track ends is settled once, where its fallback fade would begin.
             if (segment.end == End.UNDECIDED && fadeMs > 0L && durationUs > 0L &&
@@ -654,8 +656,9 @@ internal class CrossfadeAudioProcessor(
         var rampFrom: Float? = null
         private var rampStart = 1f
         private var rampElapsed = -1L
+        private var rampDurationMs = NORMALIZATION_RAMP_MS
 
-        fun beginGainRamp(target: Float) {
+        fun beginGainRamp(target: Float, durationMs: Long) {
             val from = rampFrom
             rampFrom = null
             if (gainTarget.isNaN() && from == null) {
@@ -664,16 +667,18 @@ internal class CrossfadeAudioProcessor(
                 gainTarget = target
                 return
             }
+            rampDurationMs = durationMs
             rampStart = from ?: gain
             gainTarget = target
             rampElapsed = 0L
         }
 
-        fun gainAt(rampFrames: Long, rate: Int): Float {
+        fun gainAt(rate: Int): Float {
             if (rampElapsed < 0L) return gain
-            gain = normalizationRampVolume(rampStart, gainTarget, rampElapsed * 1000L / rate)
+            val elapsedMs = rampElapsed * 1000L / rate
+            gain = normalizationRampVolume(rampStart, gainTarget, elapsedMs, rampDurationMs)
             rampElapsed++
-            if (rampElapsed >= rampFrames) {
+            if (elapsedMs >= rampDurationMs) {
                 gain = gainTarget
                 rampElapsed = -1L
             }

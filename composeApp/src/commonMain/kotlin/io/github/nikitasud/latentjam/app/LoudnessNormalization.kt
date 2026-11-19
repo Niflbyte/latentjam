@@ -220,6 +220,9 @@ internal class LoudnessNormalizer(
         measured.value = decodeTrackLoudness(settings.readTrackLoudnessPayload().orEmpty())
             .let { rows -> if (fadeEntries || rows.values.none { it.fadeMeasured }) rows else rows.mapValues { withoutEndingsUnlessWanted(it.value) } }
         scope.launch {
+            settings.normalizationRampMs.collect { playback.setNormalizationRampMs(it.toLong()) }
+        }
+        scope.launch {
             combine(measured, settings.normalizeVolume, ::normalizationVolumes)
                 .distinctUntilChanged()
                 .collect { volumes -> playback.setTrackVolumes(volumes) }

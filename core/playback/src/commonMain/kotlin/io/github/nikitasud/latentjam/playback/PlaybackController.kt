@@ -215,6 +215,9 @@ public interface PlaybackController {
      */
     public suspend fun setTrackVolumes(volumes: Map<String, Float>) {}
 
+    /** Duration of subsequent normalization ramps in milliseconds, at least 400. */
+    public suspend fun setNormalizationRampMs(durationMs: Long) {}
+
     /**
      * Where each measured track's sound begins and ends, keyed by track id; a missing id has its
      * edges at the file's. An overlap ends at the outgoing track's last sound and the next track

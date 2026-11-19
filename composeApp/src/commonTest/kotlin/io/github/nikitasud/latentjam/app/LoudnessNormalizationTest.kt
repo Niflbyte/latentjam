@@ -28,6 +28,24 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 
 internal class LoudnessNormalizationTest {
+    @Test
+    fun rampPreferenceIsClampedAndAppliedToPlayback() = runTest {
+        val settings = ThrowingSettings()
+        val playback = FakePlayback()
+        val meter = object : TrackLoudnessMeter {
+            override suspend fun measure(track: TrackDescriptor): IntegratedLoudness? = null
+        }
+        LoudnessNormalizer(settings, playback, meter).start(backgroundScope)
+        runCurrent()
+        assertEquals(3000L, playback.rampMs)
+        settings.setNormalizationRampMs(99000)
+        runCurrent()
+        assertEquals(15000L, playback.rampMs)
+        settings.setNormalizationRampMs(0)
+        runCurrent()
+        assertEquals(400L, playback.rampMs)
+    }
+
 
     @Test
     fun loudnessMapRoundTripsThroughItsPayloadIncludingHostileIds() {
@@ -461,6 +479,8 @@ internal class LoudnessNormalizationTest {
         override fun setIncludeNoveltyMixes(enabled: Boolean) { includeNoveltyMixes.value = enabled }
         override val normalizeVolume = MutableStateFlow(true)
         override fun setNormalizeVolume(enabled: Boolean) { normalizeVolume.value = enabled }
+        override val normalizationRampMs = MutableStateFlow(3000)
+        override fun setNormalizationRampMs(seconds: Int) { normalizationRampMs.value = sanitizeNormalizationRampMs(seconds) }
         override val crossfadeSeconds = MutableStateFlow(0)
         override fun setCrossfadeSeconds(seconds: Int) { crossfadeSeconds.value = seconds }
         override val relativePlaylistPaths = MutableStateFlow(false)
@@ -511,6 +531,8 @@ internal class LoudnessNormalizationTest {
     private class FakePlayback : PlaybackController {
         val nowPlaying = MutableStateFlow(NowPlaying())
         override val state = nowPlaying
+        var rampMs = 0L
+        override suspend fun setNormalizationRampMs(durationMs: Long) { rampMs = durationMs }
         val volumeUpdates = mutableListOf<Map<String, Float>>()
         val spanUpdates = mutableListOf<Map<String, SoundSpan>>()
 

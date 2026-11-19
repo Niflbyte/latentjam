@@ -54,6 +54,7 @@ internal fun EqualizerSettings(equalizer: EqualizerController, settings: AppSett
     }
     val scope = rememberCoroutineScope()
     val normalize by settings.normalizeVolume.collectAsState()
+    val rampSeconds by settings.normalizationRampMs.collectAsState()
     val normalization by AppGraph.normalizationStatus.collectAsState()
     val crossfade by settings.crossfadeSeconds.collectAsState()
 
@@ -187,6 +188,11 @@ internal fun EqualizerSettings(equalizer: EqualizerController, settings: AppSett
                         }
                         AppSwitch(checked = normalize, onCheckedChange = null)
                     }
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text(stringResource(Res.string.normalization_ramp_duration), modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+                        Text("${rampSeconds / 1000}.${(rampSeconds % 1000).toString().padStart(3, '0').trimEnd('0').ifEmpty { "0" }} s")
+                    }
+                    AppSlider(value = rampSeconds.toFloat(), onValueChange = { settings.setNormalizationRampMs((it / 100f).roundToInt() * 100) }, valueRange = 400f..15000f, steps = 145)
                     if (normalize) {
                         val message = when (normalization.phase) {
                             NormalizationPhase.OFF, NormalizationPhase.WAITING -> stringResource(Res.string.normalization_waiting)
